@@ -338,8 +338,8 @@ cargo --version
 ### 4. Build the Driving Range
 
 ```powershell
-git clone https://github.com/mmoore0011/flightscope_attemp_2.git
-cd flightscope_attemp_2\flightscope_vulkan
+git clone https://github.com/mmoore0011/flighthook_integrations.git
+cd sample_range
 cargo build --release
 ```
 
@@ -354,8 +354,8 @@ flightscope_vulkan\target\release\flightscope_vulkan.exe
 Clone and build flighthook natively:
 
 ```powershell
-git clone https://github.com/divotmaker/flighthook.git
-cd flighthook
+git clone https://github.com/mmoore0011/flighthook_integrations.git
+cd sample_range
 cargo build --release
 ```
 
