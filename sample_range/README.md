@@ -102,95 +102,10 @@ flightscope_vulkan/target/release/flightscope_vulkan
 
 flighthook is a separate Rust application that connects to the launch monitor, decodes shot data, and exposes it over a WebSocket at `ws://127.0.0.1:3030/api/ws`.
 
-### 1. Prerequisites for flighthook
+### 1. Download and Run Flighthook
+https://github.com/divotmaker/flighthook/releases
 
-The WASM UI (web dashboard) requires Trunk and the wasm32 target. If you only want the native desktop UI, these are not strictly required, but flighthook's Makefile uses them for the default build:
-
-```bash
-# Install Trunk
-cargo install trunk
-
-# Add the WASM target
-rustup target add wasm32-unknown-unknown
-```
-
-### 2. Clone and Build flighthook
-
-```bash
-git clone https://github.com/mmoore0011/flighthook_integrations.git
-cd sample_range
-
-# Full build (native binary + WASM web dashboard)
-make build
-
-# --- or, if you want the native binary only without Trunk/WASM ---
-cargo build --release
-```
-
-### 3. Configure flighthook
-
-On first run, flighthook creates a default config file at:
-
-| OS      | Path |
-|---------|------|
-| Linux   | `~/.config/flighthook/config.toml` |
-| Windows | `%APPDATA%\flighthook\config.toml` |
-| macOS   | `~/Library/Application Support/flighthook/config.toml` |
-
-A minimal configuration for a Mevo+ launch monitor looks like this:
-
-```toml
-[mevo.0]
-name    = "Mevo+"
-address = "192.168.2.1:5100"    # IP of the launch monitor on its own WiFi network
-
-[webserver.0]
-name = "WebServer"
-```
-
-For a mock launch monitor (useful for testing without hardware):
-
-```toml
-[mock_monitor.0]
-name = "Mock"
-
-[webserver.0]
-name = "WebServer"
-```
-
-Radar-specific settings for the Mevo+ (all optional, shown with defaults):
-
-```toml
-[mevo.0]
-name           = "Mevo+"
-address        = "192.168.2.1:5100"
-ball_type      = "range"
-tee_height     = "1.5in"
-range          = "8ft"
-surface_height = "0in"
-track_pct      = 80.0
-```
-
-To use a custom config file path:
-
-```bash
-make run config=/path/to/my-config.toml
-
-# or directly:
-./target/release/flighthook --config /path/to/my-config.toml
-```
-
-### 4. Run flighthook
-
-```bash
-# From the flighthook directory:
-make run
-
-# Headless mode (web dashboard only, no native window):
-make run headless=true
-
-# Or run the binary directly:
-./target/release/flighthook
+flighthook-windows-x86_64.exe
 ```
 
 Once running, flighthook opens a WebSocket server at:
@@ -199,7 +114,7 @@ Once running, flighthook opens a WebSocket server at:
 ws://127.0.0.1:3030/api/ws
 ```
 
-The web dashboard (if built with `make build`) is accessible at `http://127.0.0.1:3030`.
+The web dashboard is accessible at `http://127.0.0.1:3030`.
 
 ---
 
@@ -220,7 +135,7 @@ The launch monitor creates its own WiFi access point. Your PC needs to connect t
 With flighthook already running and your device connected:
 
 ```bash
-cd flightscope_vulkan
+cd target
 cargo run --release -- --connect ws://127.0.0.1:3030/api/ws
 ```
 
