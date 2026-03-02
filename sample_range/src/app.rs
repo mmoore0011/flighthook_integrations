@@ -234,8 +234,11 @@ impl App {
         let hud_verts = hud::build_hud_vertices(&self.atlas, &self.shot, self.phase, carry_cur, roll_cur);
         self.hud_vertex_count = self.hud_buf.upload(&hud_verts);
 
-        // Begin frame
-        let (cmd, image_idx, frame) = self.ctx.begin_frame();
+        // Begin frame — returns None when the swapchain is out of date (e.g. entering fullscreen)
+        let Some((cmd, image_idx, frame)) = self.ctx.begin_frame() else {
+            self.ctx.recreate_swapchain(&self.window);
+            return;
+        };
 
         // Update UBO3D
         let view = Mat4::look_at_rh(self.cam_pos, self.cam_target, Vec3::Y);
@@ -261,7 +264,9 @@ impl App {
         // Compute projected label positions and draw them
         self.draw_dist_labels(cmd, frame, view, proj);
 
-        self.ctx.end_frame(cmd, image_idx);
+        if self.ctx.end_frame(cmd, image_idx) {
+            self.ctx.recreate_swapchain(&self.window);
+        }
     }
 
     fn draw_hud(&self, cmd: vk::CommandBuffer, frame: usize) {
