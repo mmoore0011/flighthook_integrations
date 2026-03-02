@@ -10,33 +10,34 @@ The driving range displays ball flight, roll-out, a ball trail, HUD panels with 
 
 ---
 
-## Table of Contents
-
-1. [Hardware Requirements](#hardware-requirements)
-2. [System Dependencies](#system-dependencies)
-3. [Install Rust](#install-rust)
-4. [Build the Driving Range](#build-the-driving-range)
-5. [Set Up flighthook](#set-up-flighthook)
-6. [Network Setup](#network-setup)
-7. [Running Live Mode](#running-live-mode)
-8. [Running Demo Mode](#running-demo-mode)
-9. [CLI Reference](#cli-reference)
-10. [HUD Layout](#hud-layout)
-11. [Windows Setup](#windows-setup)
-12. [Troubleshooting](#troubleshooting)
-
----
-
 ## Run
 ### Set Up flighthook
 
 flighthook is a separate Rust application that connects to the launch monitor, decodes shot data, and exposes it over a WebSocket at `ws://127.0.0.1:3030/api/ws`.
 
-### 1. Download and Run Flighthook
+#### 1. Download and Run Flighthook
 https://github.com/divotmaker/flighthook/releases
 
+```
 flighthook-windows-x86_64.exe
 ```
+
+#### 2. (Optional) Remove GSPro connection from Flighthook
+On first run it creates its config at `%APPDATA%\flighthook\config.toml`. Edit it to remove the GSPro connection if you don't have GSPro.
+
+```
+vi $APPDATA/flighthook/config.toml
+
+...
+[REMOVE THIS SECTION]
+[gspro.0]
+name = "Local GSPro"
+address = "127.0.0.1:921"
+```
+
+#### 3. Kill and restart Flighthook
+
+Verify that it connects to the flightscope and that the Webserver is active.  If you have issues with the flightscope connection see "Network Setup"
 
 Once running, flighthook opens a WebSocket server at:
 
