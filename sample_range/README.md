@@ -93,7 +93,7 @@ The build script (`build.rs`) compiles GLSL shaders to SPIR-V automatically usin
 The compiled binary is at:
 
 ```
-flightscope_vulkan/target/release/flightscope_vulkan
+target/release/flightscope_vulkan
 ```
 
 ---
@@ -346,7 +346,7 @@ cargo build --release
 The compiled binary is at:
 
 ```
-flightscope_vulkan\target\release\flightscope_vulkan.exe
+target\release\flightscope_vulkan.exe
 ```
 
 ### 5. Set Up and Run flighthook on Windows
