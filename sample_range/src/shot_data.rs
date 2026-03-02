@@ -106,11 +106,14 @@ impl ShotData {
         let spin = shot.get("spin").filter(|v| !v.is_null());
 
         let carry_yds       = parse_dist_yds(ball["carry_distance"].as_str()?)?;
-        let total_yds       = parse_dist_yds(ball["total_distance"].as_str()?)?;
+        let total_yds       = ball["total_distance"].as_str()
+                                  .and_then(parse_dist_yds)
+                                  .unwrap_or(carry_yds);
         let height_ft       = parse_dist_ft(ball["max_height"].as_str()?)?;
         let ball_speed_mph  = parse_vel_mph(ball["launch_speed"].as_str()?)?;
         let launch_v_deg    = ball["launch_elevation"].as_f64()? as f32;
-        let launch_h_deg    = ball["launch_azimuth"].as_f64()? as f32;
+        // Mevo+ azimuth: positive = left, but our convention is positive = right, so negate.
+        let launch_h_deg    = -(ball["launch_azimuth"].as_f64()? as f32);
 
         let roll_yds    = (total_yds - carry_yds).max(0.0);
         let lateral_yds = carry_yds * launch_h_deg.to_radians().sin();
@@ -164,7 +167,8 @@ impl ShotData {
             aoa_deg,
             club_path_deg,
             dynamic_loft_deg,
-            flight_time_sec:  carry_yds / 30.0,
+            flight_time_sec:  ball["flight_time"].as_f64().map(|v| v as f32)
+                                  .unwrap_or(carry_yds / 30.0),
             roll_speed_mph:   5.0,
             ..ShotData::default()
         })

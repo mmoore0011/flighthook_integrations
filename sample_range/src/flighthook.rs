@@ -17,6 +17,12 @@ pub fn spawn(url: &str) -> mpsc::Receiver<ShotData> {
             match connect(&url) {
                 Ok((mut ws, _)) => {
                     eprintln!("flighthook: connected to {url}");
+                    // Send the required start handshake before the server will stream events.
+                    let hello = r#"{"type":"start","name":"sample_range"}"#;
+                    if let Err(e) = ws.send(tungstenite::Message::Text(hello.into())) {
+                        eprintln!("flighthook: handshake send error: {e}");
+                        break;
+                    }
                     loop {
                         match ws.read() {
                             Ok(Message::Text(text)) => {
@@ -52,15 +58,31 @@ pub fn spawn(url: &str) -> mpsc::Receiver<ShotData> {
 
 fn parse_message(text: &str) -> Option<ShotData> {
     let v: serde_json::Value = serde_json::from_str(text).ok()?;
+
     let event = v.get("event")?;
-    if event.get("kind")?.as_str()? != "launch_monitor" {
+
+    let kind = event.get("kind").and_then(|k| k.as_str()).unwrap_or("?");
+    if kind != "launch_monitor" {
+        // actor_status and similar high-frequency telemetry — no need to log
         return None;
     }
+
     let inner = event.get("event")?;
-    if inner.get("type")?.as_str()? != "shot_result" {
+    let inner_type = inner.get("type").and_then(|t| t.as_str()).unwrap_or("?");
+    if inner_type != "shot_result" {
         return None;
     }
+
     let shot = inner.get("shot")?;
     let timestamp = v.get("timestamp").and_then(|t| t.as_str()).unwrap_or("");
-    ShotData::from_flighthook(shot, timestamp)
+    match ShotData::from_flighthook(shot, timestamp) {
+        Some(s) => {
+            eprintln!("flighthook: shot carry={:.1}yds ball={:.1}mph", s.carry_yds, s.ball_speed_mph);
+            Some(s)
+        }
+        None => {
+            eprintln!("flighthook: shot_result parse failed — shot JSON: {shot}");
+            None
+        }
+    }
 }
