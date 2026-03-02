@@ -384,14 +384,19 @@ impl VulkanContext {
 
     // ── Frame management ──────────────────────────────────────────────────
 
-    pub fn begin_frame(&mut self) -> (vk::CommandBuffer, u32, usize) {
+    /// Returns `None` if the swapchain is out of date (caller must recreate and skip the frame).
+    pub fn begin_frame(&mut self) -> Option<(vk::CommandBuffer, u32, usize)> {
         unsafe {
             let f = self.current_frame;
             self.device.wait_for_fences(&[self.in_flight[f]], true, u64::MAX).unwrap();
 
-            let (image_idx, _) = self.swapchain_loader
-                .acquire_next_image(self.swapchain, u64::MAX, self.img_available[f], vk::Fence::null())
-                .unwrap();
+            let result = self.swapchain_loader
+                .acquire_next_image(self.swapchain, u64::MAX, self.img_available[f], vk::Fence::null());
+            let image_idx = match result {
+                Ok((idx, _)) => idx,
+                Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => return None,
+                Err(e) => panic!("acquire_next_image failed: {e}"),
+            };
 
             self.device.reset_fences(&[self.in_flight[f]]).unwrap();
 
@@ -421,11 +426,12 @@ impl VulkanContext {
                 offset: vk::Offset2D { x: 0, y: 0 }, extent: self.extent,
             }]);
 
-            (cmd, image_idx, f)
+            Some((cmd, image_idx, f))
         }
     }
 
-    pub fn end_frame(&mut self, cmd: vk::CommandBuffer, image_idx: u32) {
+    /// Returns `true` if the swapchain is out of date or suboptimal (caller must recreate).
+    pub fn end_frame(&mut self, cmd: vk::CommandBuffer, image_idx: u32) -> bool {
         unsafe {
             let f = self.current_frame;
             self.device.cmd_end_render_pass(cmd);
@@ -444,7 +450,7 @@ impl VulkanContext {
 
             let scs = [self.swapchain];
             let idxs = [image_idx];
-            let _ = self.swapchain_loader.queue_present(self.present_queue, &vk::PresentInfoKHR {
+            let present_result = self.swapchain_loader.queue_present(self.present_queue, &vk::PresentInfoKHR {
                 wait_semaphore_count: 1, p_wait_semaphores: signal.as_ptr(),
                 swapchain_count: 1,      p_swapchains: scs.as_ptr(),
                 p_image_indices: idxs.as_ptr(),
@@ -453,6 +459,58 @@ impl VulkanContext {
 
             self.last_image_idx = image_idx;
             self.current_frame = (f + 1) % FRAMES_IN_FLIGHT;
+
+            matches!(present_result, Err(vk::Result::ERROR_OUT_OF_DATE_KHR) | Ok(true))
+        }
+    }
+
+    /// Destroy and recreate all swapchain-dependent resources (call after ERROR_OUT_OF_DATE_KHR).
+    pub fn recreate_swapchain(&mut self, window: &Arc<Window>) {
+        unsafe {
+            self.device.device_wait_idle().unwrap();
+
+            for &fb in &self.framebuffers { self.device.destroy_framebuffer(fb, None); }
+            self.device.destroy_image_view(self.depth_view, None);
+            if let Some(a) = self.depth_alloc.take() { let _ = self.allocator.free(a); }
+            self.device.destroy_image(self.depth_image, None);
+            for &v in &self.swapchain_views { self.device.destroy_image_view(v, None); }
+            self.swapchain_loader.destroy_swapchain(self.swapchain, None);
+
+            let (sc_loader, sc, images, _fmt, extent) = create_swapchain(
+                &self.instance, &self.device, &self.surface_loader, self.surface,
+                self.physical_device, self.graphics_family, self.present_family, window,
+            );
+            self.swapchain_loader = sc_loader;
+            self.swapchain = sc;
+            self.swapchain_images = images;
+            self.extent = extent;
+
+            self.swapchain_views = self.swapchain_images.iter()
+                .map(|&img| make_image_view(&self.device, img, self.swapchain_format, vk::ImageAspectFlags::COLOR))
+                .collect();
+
+            let depth_format = vk::Format::D32_SFLOAT;
+            let (di, dv, da) = create_depth(&self.device, &mut self.allocator, extent, depth_format);
+            self.depth_image = di;
+            self.depth_view = dv;
+            self.depth_alloc = Some(da);
+
+            self.framebuffers = self.swapchain_views.iter()
+                .map(|&cv| {
+                    let atts = [cv, self.depth_view];
+                    self.device.create_framebuffer(&vk::FramebufferCreateInfo {
+                        render_pass: self.render_pass,
+                        attachment_count: atts.len() as u32,
+                        p_attachments: atts.as_ptr(),
+                        width: extent.width,
+                        height: extent.height,
+                        layers: 1,
+                        ..Default::default()
+                    }, None).unwrap()
+                })
+                .collect();
+
+            self.current_frame = 0;
         }
     }
 

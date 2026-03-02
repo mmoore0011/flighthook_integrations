@@ -8,9 +8,10 @@ mod vulkan;
 use std::sync::Arc;
 
 use winit::application::ApplicationHandler;
-use winit::event::WindowEvent;
+use winit::event::{ElementState, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
-use winit::window::{Window, WindowId};
+use winit::keyboard::{KeyCode, PhysicalKey};
+use winit::window::{Fullscreen, Window, WindowId};
 
 use app::App;
 use shot_data::ShotData;
@@ -48,6 +49,25 @@ impl ApplicationHandler for Handler {
     ) {
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
+            WindowEvent::KeyboardInput { event, .. }
+                if event.state == ElementState::Pressed =>
+            {
+                if let PhysicalKey::Code(KeyCode::F11) = event.physical_key {
+                    if let Some(app) = &self.app {
+                        let w = app.window();
+                        if w.fullscreen().is_some() {
+                            w.set_fullscreen(None);
+                        } else {
+                            w.set_fullscreen(Some(Fullscreen::Borderless(None)));
+                        }
+                    }
+                }
+                if let PhysicalKey::Code(KeyCode::Escape) = event.physical_key {
+                    if let Some(app) = &self.app {
+                        app.window().set_fullscreen(None);
+                    }
+                }
+            }
             WindowEvent::RedrawRequested => {
                 if let Some(app) = &mut self.app {
                     app.tick();
